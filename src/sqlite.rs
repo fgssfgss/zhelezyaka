@@ -33,12 +33,17 @@ where
     P: IntoIterator,
     P::Item: ToSql,
 {
-    stmt.query_row(params, |row| {
+    match stmt.query_row(params, |row| {
         let lexeme1: String = row.get(0).unwrap();
         let lexeme2: String = row.get(1).unwrap();
         let lexeme3: String = row.get(2).unwrap();
         Ok(vec![lexeme1, lexeme2, lexeme3])
-    }).unwrap()
+    }) {
+        Ok(v) => v,
+        Err(_) => return vec![String::from(BEGIN),
+                                     String::from("Not found"),
+                                     String::from(END)],
+    }
 }
 
 impl SqliteDB {
