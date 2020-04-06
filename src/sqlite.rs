@@ -134,14 +134,14 @@ impl SqliteDB {
         }
 
         if END.eq(&init[2]) {
-            return self.select_left(&init[0], &init[1]);
+            return self.select_left(&init[0], &init[1], false);
         }
 
         for s in &init {
             println!("this is case when three word are not END or BEGIN: {}", s);
         }
 
-        let mut result_string = self.select_left(&init[0], &init[1]);
+        let mut result_string = self.select_left(&init[0], &init[1], true);
         result_string.push_str(" ");
         result_string.push_str(&self.select_right(&init[1], &init[2]));
         result_string
@@ -161,7 +161,7 @@ impl SqliteDB {
 
     // maybe I can fold select_left and select_right into one universal function
     // just need to reinvent direction argument...
-    fn select_left(&self, lexeme2: &str, lexeme3: &str) -> String {
+    fn select_left(&self, lexeme2: &str, lexeme3: &str, remove_last: bool) -> String {
         let mut stmt = self.conn.prepare_cached(SELECT_LEFT).unwrap();
         let mut result = vec![String::from(lexeme2), String::from(lexeme3)];
         let mut result_string = String::new();
@@ -192,7 +192,9 @@ impl SqliteDB {
         }
 
         // removing the last element, to make sure that it won't be duplicated in select_right
-        result.pop().unwrap();
+        if remove_last {
+            result.pop().unwrap();
+        }
 
         let reverse_string = |s: &str| {
             s.chars().rev().collect::<String>()
