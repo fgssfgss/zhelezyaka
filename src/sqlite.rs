@@ -1,6 +1,6 @@
 use rusqlite::{Connection, params, CachedStatement, ToSql, Error};
 
-const CREATE_DB: &str = "CREATE TABLE lexems (\
+const CREATE_DB: &str = "CREATE TABLE IF NOT EXISTS lexems (\
                             `lexeme1` TEXT, \
                             `lexeme2` TEXT, \
                             `lexeme3` TEXT, \
@@ -47,9 +47,9 @@ where
 }
 
 impl SqliteDB {
-    pub fn new() -> SqliteDB {
+    pub fn new(path: &str) -> SqliteDB {
         println!("SqliteDB starting");
-        let conn = Connection::open_in_memory().unwrap();
+        let conn = Connection::open(path).unwrap();
         conn.execute(CREATE_DB, params![]).unwrap();
         SqliteDB { conn }
     }
@@ -69,6 +69,7 @@ impl SqliteDB {
         }
     }
 
+    #[allow(dead_code)]
     pub fn insert(&mut self, text: &String) -> () {
         let mut splitted: Vec<&str> = text.trim().split(" ").collect();
 
@@ -108,7 +109,9 @@ impl SqliteDB {
         }
     }
 
-    pub fn select(&self, word: &str) -> () {
+    pub fn select(&self, input: &str) -> () {
+        let word= input.trim();
+
         if word.is_empty() {
             let result = self.select_random();
             println!("Found by random: {}", result);
