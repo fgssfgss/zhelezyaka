@@ -54,6 +54,7 @@ impl SqliteDB {
         SqliteDB { conn }
     }
 
+    #[allow(dead_code)]
     pub fn is_exist(&mut self, word: &str) -> Option<i32> {
         if !word.is_empty() {
             let mut stmt = self.conn.prepare_cached(IS_EXIST).unwrap();
@@ -71,7 +72,7 @@ impl SqliteDB {
 
     #[allow(dead_code)]
     pub fn insert(&mut self, text: &String) -> () {
-        let mut splitted: Vec<&str> = text.trim().split(" ").collect();
+        let mut splitted: Vec<&str> = text.trim().split_whitespace().collect();
 
         splitted.insert(0, BEGIN);
         splitted.push(END);
@@ -137,9 +138,9 @@ impl SqliteDB {
             return self.select_left(&init[0], &init[1], false);
         }
 
-        for s in &init {
-            println!("this is case when three word are not END or BEGIN: {}", s);
-        }
+        // for s in &init {
+        //     println!("this is case when three word are not END or BEGIN: {}", s);
+        // }
 
         let mut result_string = self.select_left(&init[0], &init[1], true);
         result_string.push_str(" ");
@@ -166,7 +167,7 @@ impl SqliteDB {
         let mut result = vec![String::from(lexeme2), String::from(lexeme3)];
         let mut result_string = String::new();
 
-        println!("{} {}", &lexeme2, &lexeme3);
+        //println!("{} {}", &lexeme2, &lexeme3);
 
         let get_first_element = |v: &Vec<String>| v[0].clone();
         let get_after_first_element = |v: &Vec<String>| v[1].clone();
@@ -200,8 +201,8 @@ impl SqliteDB {
             s.chars().rev().collect::<String>()
         };
 
-        for (i, s) in result.iter().rev().enumerate() {
-            println!("{}: {}", i, s);
+        for (_i, s) in result.iter().rev().enumerate() {
+            //println!("{}: {}", i, s);
             result_string.push_str(&reverse_string(&s));
             result_string.push_str(" ");
         }
@@ -214,7 +215,7 @@ impl SqliteDB {
         let mut result = vec![String::from(lexeme1), String::from(lexeme2)];
         let mut result_string = String::new();
 
-        println!("{} {}", &lexeme1, &lexeme2);
+        //println!("{} {}", &lexeme1, &lexeme2);
 
         let get_last_element = |v: &Vec<String>| v[v.len() - 1].clone();
         let get_prev_last_element = |v: &Vec<String>| v[v.len() - 2].clone();
@@ -239,8 +240,8 @@ impl SqliteDB {
             }
         }
 
-        for (i, s) in result.iter().enumerate() {
-            println!("{}: {}", i, s);
+        for (_i, s) in result.iter().enumerate() {
+            //println!("{}: {}", i, s);
             result_string.push_str(s);
             result_string.push_str(" ");
         }

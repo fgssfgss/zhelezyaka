@@ -1,6 +1,8 @@
 use std::io;
 
 mod sqlite;
+mod cmd;
+use cmd::CommandType;
 
 fn main() {
     println!("Zhelezyaka 2.0");
@@ -12,16 +14,25 @@ fn main() {
 
         match io::stdin().read_line(&mut input) {
             Ok(n) => {
-                println!("success, bytes read {}: {}", n, input);
-                sqlitedb.select(&input);
-                //sqlitedb.insert(&input);
-                if let Some(n) = sqlitedb.is_exist("хуй") {
-                    println!("count {}", n);
-                } else {
-                    println!("empty word provided");
+                println!("Success, bytes read {}: {}", n, input);
+
+                let cmdtype = cmd::CommandParser::parse_command(&input);
+
+                match cmdtype {
+                    CommandType::EGenerateByWord(s) => sqlitedb.select(&s),
+                    CommandType::EGetCountByWord(s) => {
+                        if let Some(n) = sqlitedb.is_exist(&s) {
+                            println!("Count {}", n);
+                        } else {
+                            println!("Empty word provided");
+                        }
+                    }
+                    CommandType::EDisableForChat => println!("Not implemented!"),
+                    CommandType::EEnableForChat => println!("Not implemented!"),
+                    CommandType::ENoCommand => sqlitedb.insert(&input),
                 }
             }
-            Err(error) => println!("error: {}", error),
+            Err(error) => println!("Error: {}", error),
         }
     }
 }
