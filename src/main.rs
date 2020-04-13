@@ -1,44 +1,45 @@
 use log4rs;
 use log::{info, warn};
-
+use std::env;
 mod sqlite;
 mod cmd;
 mod telegram;
 use cmd::CommandType;
+use telegram::TelegramActions::*;
 
+// TODO: how to add here more threads?
 #[tokio::main]
 async fn main() {
-    log4rs::init_file("config/log.yaml", Default::default()).unwrap();
+    let dbpath = env::var("DATABASE_PATH").expect("DATABASE_PATH is not provided");
+    let logconfig = env::var("LOG_CONFIG").expect("LOG_CONFIG is not provided");
+    let token = env::var("TELEGRAM_TOKEN").expect("TELEGRAM_TOKEN is not provided");
+
+    log4rs::init_file(&logconfig, Default::default()).unwrap();
 
     info!("Zhelezyaka 2.0");
 
-    let mut sqlite = sqlite::SqliteDB::new("./database.db");
-    let mut telegram = telegram::Telegram::new("");
+    let mut sqlite = sqlite::SqliteDB::new(&dbpath);
+    let mut telegram = telegram::Telegram::new(&token);
 
+    // TODO: tokio::spawn() or tokio::task::block_in_place()?
     loop {
-        telegram.serve(| input| {
+        telegram.serve(|chat_id, input| {
             let cmdtype = cmd::CommandParser::parse_command(&input);
 
-            info!("input txt {}", &input);
-
-            // TODO: make it as blocking operation in tokio
-            let answer = match cmdtype {
-                CommandType::EGenerateByWord(s) => sqlite.select(&s),
+            info!("ChatId <{}>: input txt {}", chat_id, &input);
+            match cmdtype {
+                CommandType::EGenerateByWord(s) => ReplyToMessage(sqlite.select(&s)),
                 CommandType::EGetCountByWord(s) => {
                     if let Some(n) = sqlite.is_exist(&s) {
-                        format!("Count {}", n)
+                        ReplyToMessage(format!("Count {}", n))
                     } else {
-                        format!("Empty word provided")
+                        ReplyToMessage(format!("Empty word provided"))
                     }
                 }
-                CommandType::EDisableForChat => { warn!("Not implemented!"); String::new() },
-                CommandType::EEnableForChat => { warn!("Not implemented!"); String::new() },
-                CommandType::ENoCommand => { sqlite.insert(&input); sqlite.select("") },
-            };
-
-            info!("ANSWER IS {}", &answer);
-
-            answer
+                CommandType::EDisableForChat => { warn!("Not implemented!"); NoReply },
+                CommandType::EEnableForChat => { warn!("Not implemented!"); NoReply },
+                CommandType::ENoCommand => { sqlite.insert(&input); ReplyToChat(sqlite.select("")) },
+            }
         }).await;
     }
 }

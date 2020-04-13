@@ -1,10 +1,16 @@
 use futures::StreamExt;
 use telegram_bot::*;
-use log::{debug, trace, info};
+use log::{debug, trace, info, error };
 
-pub struct Telegram{
+pub struct Telegram {
     api: Api,
     stream: UpdatesStream,
+}
+
+pub enum TelegramActions {
+    ReplyToMessage(String),
+    ReplyToChat(String),
+    NoReply
 }
 
 impl Telegram {
@@ -15,24 +21,38 @@ impl Telegram {
         Telegram { api, stream }
     }
 
-    // TODO: Make it not reply
-    pub async fn send_message(&self, message: &Message, text: String) -> () {
+    async fn send_reply(&self, message: &Message, text: String) {
         trace!("Sending a reply");
-        // TODO: Handle error
-        self.api.send(message.text_reply(text)).await;
+        while let Err(e) = self.api.send(message.text_reply(&text)).await {
+            error!("Error in api.send_reply() - {}", e);
+        }
+    }
+
+    async fn send_to_chat(&self, message: &Message, text: String) {
+        trace!("Sending to a chat");
+        while let Err(e) = self.api.send(message.chat.text(&text)).await {
+            error!("Error in api.send_to_chat() - {}", e);
+        }
+    }
+
+    async fn send_message(&self, message: &Message, action: TelegramActions) {
+        match action {
+            TelegramActions::ReplyToMessage(s) => self.send_reply(message, s).await,
+            TelegramActions::ReplyToChat(s) => self.send_to_chat(message, s).await,
+            TelegramActions::NoReply => { trace!("No reply to this command"); }
+        };
     }
 
     pub async fn serve<F>(&mut self, mut func: F) -> ()
     where
-        F: FnMut(&String) -> String,
+        F: FnMut(ChatId, &String) -> TelegramActions,
     {
         while let Some(update) = self.stream.next().await {
             let update = update.unwrap();
             if let UpdateKind::Message(message) = update.kind {
                 if let MessageKind::Text { ref data, .. } = message.kind {
                     info!("<{}>: {}", &message.from.first_name, data);
-                    // TODO: function should return something
-                    self.send_message(&message, func(data)).await;
+                    self.send_message(&message, func(message.chat.id(), data)).await;
                 }
             }
         }
