@@ -1,3 +1,4 @@
+use log::{debug, info, trace};
 use rusqlite::{Connection, params, CachedStatement, ToSql, Error};
 
 const CREATE_DB: &str = "CREATE TABLE IF NOT EXISTS lexems (\
@@ -48,7 +49,7 @@ where
 
 impl SqliteDB {
     pub fn new(path: &str) -> SqliteDB {
-        println!("SqliteDB starting");
+        info!("SqliteDB starting");
         let conn = Connection::open(path).unwrap();
         conn.execute(CREATE_DB, params![]).unwrap();
         SqliteDB { conn }
@@ -78,7 +79,7 @@ impl SqliteDB {
         splitted.push(END);
 
         for s in &splitted {
-            println!("{}", s);
+            trace!("{}", s);
         }
 
         for x in 0..(splitted.len() - 2) {
@@ -96,29 +97,31 @@ impl SqliteDB {
                                              lexeme1 = '{}' AND lexeme2 = '{}' AND lexeme3 = '{}';",
                                      splitted[x], splitted[x + 1], splitted[x + 2]);
 
-            println!("Inserting {}", insert_sql);
+            trace!("Inserting {}", insert_sql);
             match self.conn.execute(&insert_sql, params![]) {
-                Err(e) => println!("Insert was unsuccessful: {}", e),
-                _ => println!("Insert is successful"),
+                Err(e) => trace!("Insert was unsuccessful: {}", e),
+                _ => trace!("Insert is successful"),
             }
 
-            println!("Inserting {}", update_sql);
+            trace!("Inserting {}", update_sql);
             match self.conn.execute(&update_sql, params![]) {
-                Err(e) => println!("Insert was unsuccessful: {}", e),
-                _ => println!("Insert is successful"),
+                Err(e) => trace!("Insert was unsuccessful: {}", e),
+                _ => trace!("Insert is successful"),
             }
         }
     }
 
-    pub fn select(&self, input: &str) -> () {
+    pub fn select(&self, input: &str) -> String {
         let word= input.trim();
 
         if word.is_empty() {
             let result = self.select_random();
-            println!("Found by random: {}", result);
+            debug!("Found by random: {}", result);
+            result
         } else {
             let result = self.select_lexeme(word);
-            println!("Found by word {}: {}", word, result);
+            debug!("Found by word {}: {}", word, result);
+            result
         }
     }
 
@@ -137,10 +140,6 @@ impl SqliteDB {
         if END.eq(&init[2]) {
             return self.select_left(&init[0], &init[1], false);
         }
-
-        // for s in &init {
-        //     println!("this is case when three word are not END or BEGIN: {}", s);
-        // }
 
         let mut result_string = self.select_left(&init[0], &init[1], true);
         result_string.push_str(" ");
@@ -167,7 +166,7 @@ impl SqliteDB {
         let mut result = vec![String::from(lexeme2), String::from(lexeme3)];
         let mut result_string = String::new();
 
-        //println!("{} {}", &lexeme2, &lexeme3);
+        trace!("{} {}", &lexeme2, &lexeme3);
 
         let get_first_element = |v: &Vec<String>| v[0].clone();
         let get_after_first_element = |v: &Vec<String>| v[1].clone();
@@ -201,8 +200,8 @@ impl SqliteDB {
             s.chars().rev().collect::<String>()
         };
 
-        for (_i, s) in result.iter().rev().enumerate() {
-            //println!("{}: {}", i, s);
+        for (i, s) in result.iter().rev().enumerate() {
+            trace!("{}: {}", i, s);
             result_string.push_str(&reverse_string(&s));
             result_string.push_str(" ");
         }
@@ -215,7 +214,7 @@ impl SqliteDB {
         let mut result = vec![String::from(lexeme1), String::from(lexeme2)];
         let mut result_string = String::new();
 
-        //println!("{} {}", &lexeme1, &lexeme2);
+        trace!("{} {}", &lexeme1, &lexeme2);
 
         let get_last_element = |v: &Vec<String>| v[v.len() - 1].clone();
         let get_prev_last_element = |v: &Vec<String>| v[v.len() - 2].clone();
@@ -240,8 +239,8 @@ impl SqliteDB {
             }
         }
 
-        for (_i, s) in result.iter().enumerate() {
-            //println!("{}: {}", i, s);
+        for (i, s) in result.iter().enumerate() {
+            trace!("{}: {}", i, s);
             result_string.push_str(s);
             result_string.push_str(" ");
         }

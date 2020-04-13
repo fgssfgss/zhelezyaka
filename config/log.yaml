@@ -1,0 +1,15 @@
+refresh_rate: 30 seconds
+appenders:
+  stdout:
+    kind: console
+root:
+  level: trace
+  appenders:
+    - stdout
+loggers:
+  mio:
+    level: warn
+  hyper:
+    level: warn
+  want:
+    level: warn

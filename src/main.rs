@@ -1,38 +1,44 @@
-use std::io;
+use log4rs;
+use log::{info, warn};
 
 mod sqlite;
 mod cmd;
+mod telegram;
 use cmd::CommandType;
 
-fn main() {
-    println!("Zhelezyaka 2.0");
+#[tokio::main]
+async fn main() {
+    log4rs::init_file("config/log.yaml", Default::default()).unwrap();
 
-    let mut sqlitedb = sqlite::SqliteDB::new("./database.db");
+    info!("Zhelezyaka 2.0");
+
+    let mut sqlite = sqlite::SqliteDB::new("./database.db");
+    let mut telegram = telegram::Telegram::new("");
 
     loop {
-        let mut input = String::new();
+        telegram.serve(| input| {
+            let cmdtype = cmd::CommandParser::parse_command(&input);
 
-        match io::stdin().read_line(&mut input) {
-            Ok(n) => {
-                println!("Success, bytes read {}: {}", n, input);
+            info!("input txt {}", &input);
 
-                let cmdtype = cmd::CommandParser::parse_command(&input);
-
-                match cmdtype {
-                    CommandType::EGenerateByWord(s) => sqlitedb.select(&s),
-                    CommandType::EGetCountByWord(s) => {
-                        if let Some(n) = sqlitedb.is_exist(&s) {
-                            println!("Count {}", n);
-                        } else {
-                            println!("Empty word provided");
-                        }
+            // TODO: make it as blocking operation in tokio
+            let answer = match cmdtype {
+                CommandType::EGenerateByWord(s) => sqlite.select(&s),
+                CommandType::EGetCountByWord(s) => {
+                    if let Some(n) = sqlite.is_exist(&s) {
+                        format!("Count {}", n)
+                    } else {
+                        format!("Empty word provided")
                     }
-                    CommandType::EDisableForChat => println!("Not implemented!"),
-                    CommandType::EEnableForChat => println!("Not implemented!"),
-                    CommandType::ENoCommand => sqlitedb.insert(&input),
                 }
-            }
-            Err(error) => println!("Error: {}", error),
-        }
+                CommandType::EDisableForChat => { warn!("Not implemented!"); String::new() },
+                CommandType::EEnableForChat => { warn!("Not implemented!"); String::new() },
+                CommandType::ENoCommand => { sqlite.insert(&input); sqlite.select("") },
+            };
+
+            info!("ANSWER IS {}", &answer);
+
+            answer
+        }).await;
     }
 }
