@@ -56,7 +56,7 @@ impl SqliteDB {
     }
 
     #[allow(dead_code)]
-    pub fn is_exist(&mut self, word: &str) -> Option<i32> {
+    pub fn is_exist(&self, word: String) -> Option<i32> {
         if !word.is_empty() {
             let mut stmt = self.conn.prepare_cached(IS_EXIST).unwrap();
             let count = stmt.query_and_then(params![&word], |row| {
@@ -72,7 +72,7 @@ impl SqliteDB {
     }
 
     #[allow(dead_code)]
-    pub fn insert(&mut self, text: &String) -> () {
+    pub fn insert(&self, text: String) -> () {
         let mut splitted: Vec<&str> = text.trim().split_whitespace().collect();
 
         splitted.insert(0, BEGIN);
@@ -111,7 +111,7 @@ impl SqliteDB {
         }
     }
 
-    pub fn select(&self, input: &str) -> String {
+    pub fn select(&self, input: String) -> String {
         let word= input.trim();
 
         if word.is_empty() {

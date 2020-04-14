@@ -43,16 +43,17 @@ impl Telegram {
         };
     }
 
-    pub async fn serve<F>(&mut self, mut func: F) -> ()
+    pub async fn serve<F>(&mut self, func: F) -> ()
     where
-        F: FnMut(ChatId, &String) -> TelegramActions,
+        F: Fn(ChatId, String) -> TelegramActions,
     {
         while let Some(update) = self.stream.next().await {
             let update = update.unwrap();
             if let UpdateKind::Message(message) = update.kind {
                 if let MessageKind::Text { ref data, .. } = message.kind {
                     info!("<{}>: {}", &message.from.first_name, data);
-                    self.send_message(&message, func(message.chat.id(), data)).await;
+                    let action = func(message.chat.id(), data.clone());
+                    self.send_message(&message, action).await;
                 }
             }
         }

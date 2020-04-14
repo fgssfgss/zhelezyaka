@@ -18,19 +18,19 @@ async fn main() {
 
     info!("Zhelezyaka 2.0");
 
-    let mut sqlite = sqlite::SqliteDB::new(&dbpath);
+    let sqlite = sqlite::SqliteDB::new(&dbpath);
     let mut telegram = telegram::Telegram::new(&token);
 
-    // TODO: tokio::spawn() or tokio::task::block_in_place()?
     loop {
         telegram.serve(|chat_id, input| {
             let cmdtype = cmd::CommandParser::parse_command(&input);
 
             info!("ChatId <{}>: input txt {}", chat_id, &input);
+
             match cmdtype {
-                CommandType::EGenerateByWord(s) => ReplyToMessage(sqlite.select(&s)),
+                CommandType::EGenerateByWord(s) => ReplyToMessage(sqlite.select(s)),
                 CommandType::EGetCountByWord(s) => {
-                    if let Some(n) = sqlite.is_exist(&s) {
+                    if let Some(n) = sqlite.is_exist(s) {
                         ReplyToMessage(format!("Count {}", n))
                     } else {
                         ReplyToMessage(format!("Empty word provided"))
@@ -38,7 +38,7 @@ async fn main() {
                 }
                 CommandType::EDisableForChat => { warn!("Not implemented!"); NoReply },
                 CommandType::EEnableForChat => { warn!("Not implemented!"); NoReply },
-                CommandType::ENoCommand => { sqlite.insert(&input); ReplyToChat(sqlite.select("")) },
+                CommandType::ENoCommand => { sqlite.insert(input); ReplyToChat(sqlite.select(String::new())) },
             }
         }).await;
     }
