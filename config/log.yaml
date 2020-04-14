@@ -13,3 +13,5 @@ loggers:
     level: warn
   want:
     level: warn
+  zhelezyaka::sqlite:
+    level: warn

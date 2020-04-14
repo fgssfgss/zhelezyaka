@@ -1,5 +1,9 @@
 use log::{debug, info, trace};
-use rusqlite::{Connection, params, CachedStatement, ToSql, Error};
+use r2d2_sqlite::SqliteConnectionManager;
+use r2d2_sqlite::rusqlite::params;
+use r2d2::{Pool, PooledConnection};
+use r2d2_sqlite::rusqlite::*;
+use r2d2_sqlite::rusqlite::ToSql;
 
 const CREATE_DB: &str = "CREATE TABLE IF NOT EXISTS lexems (\
                             `lexeme1` TEXT, \
@@ -26,7 +30,26 @@ const END: &str = "#end#";
 const MAXIMUM_RECURSION_DEPTH: i32 = 500;
 
 pub struct SqliteDB {
-    conn: Connection
+    pool: Pool<SqliteConnectionManager>
+}
+
+impl SqliteDB {
+    pub fn new(path: &str) -> SqliteDB {
+        info!("SqliteDB starting");
+        let manager = SqliteConnectionManager::file(path);
+        let pool = r2d2::Pool::new(manager).unwrap();
+
+        pool.get().unwrap().execute(CREATE_DB, params![]).unwrap();
+        SqliteDB { pool }
+    }
+
+    pub fn get_conn(&self) -> SqliteConn {
+        SqliteConn::new(self.pool.get().unwrap())
+    }
+}
+
+pub struct SqliteConn {
+    conn: PooledConnection<SqliteConnectionManager>
 }
 
 fn query_statement<P>(stmt: &mut CachedStatement<'_>, params: P) -> Vec<String>
@@ -47,15 +70,11 @@ where
     }
 }
 
-impl SqliteDB {
-    pub fn new(path: &str) -> SqliteDB {
-        info!("SqliteDB starting");
-        let conn = Connection::open(path).unwrap();
-        conn.execute(CREATE_DB, params![]).unwrap();
-        SqliteDB { conn }
+impl SqliteConn {
+    pub fn new(conn: PooledConnection<SqliteConnectionManager>) -> SqliteConn {
+        SqliteConn { conn }
     }
 
-    #[allow(dead_code)]
     pub fn is_exist(&self, word: String) -> Option<i32> {
         if !word.is_empty() {
             let mut stmt = self.conn.prepare_cached(IS_EXIST).unwrap();
@@ -71,7 +90,6 @@ impl SqliteDB {
         }
     }
 
-    #[allow(dead_code)]
     pub fn insert(&self, text: String) -> () {
         let mut splitted: Vec<&str> = text.trim().split_whitespace().collect();
 
