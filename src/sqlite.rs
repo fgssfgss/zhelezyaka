@@ -72,9 +72,8 @@ where
 
 impl SqliteConn {
     pub fn new(conn: PooledConnection<SqliteConnectionManager>) -> SqliteConn {
-        conn.execute("PRAGMA journal_mode = MEMORY", params![]).unwrap();
-        conn.execute("PRAGMA synchronous = OFF", params![]).unwrap();
-        conn.busy_handler(Some(|_i| {
+        conn.busy_handler(Some(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(16));
             true
         })).unwrap();
         SqliteConn { conn }
@@ -105,6 +104,7 @@ impl SqliteConn {
             trace!("{}", s);
         }
 
+        self.conn.execute("BEGIN DEFERRED TRANSACTION", params![]).unwrap();
         for x in 0..(splitted.len() - 2) {
             let insert_sql = format!("INSERT OR IGNORE INTO lexems (\
                                        `lexeme1`, \
@@ -132,6 +132,7 @@ impl SqliteConn {
                 _ => trace!("Insert is successful"),
             }
         }
+        self.conn.execute("COMMIT", params![]).unwrap();
     }
 
     pub fn select(&self, input: String) -> String {
