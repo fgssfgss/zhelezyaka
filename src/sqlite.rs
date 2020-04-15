@@ -72,6 +72,11 @@ where
 
 impl SqliteConn {
     pub fn new(conn: PooledConnection<SqliteConnectionManager>) -> SqliteConn {
+        conn.execute("PRAGMA journal_mode = MEMORY", params![]).unwrap();
+        conn.execute("PRAGMA synchronous = OFF", params![]).unwrap();
+        conn.busy_handler(Some(|_i| {
+            true
+        })).unwrap();
         SqliteConn { conn }
     }
 
