@@ -32,7 +32,7 @@ async fn main() {
             let sqlite = SQLITE_POOL.get_conn();
             let cmdtype = cmd::CommandParser::parse_command(&input);
 
-            info!("ChatId <{}>: input txt {}", chat_id, &input);
+            info!("ChatId <{}>: input txt {:?}", chat_id, &input);
 
             match cmdtype {
                 CommandType::EGenerateByWord(s) => ReplyToMessage(sqlite.select(s)),
@@ -47,6 +47,12 @@ async fn main() {
                 CommandType::EEnableForChat => { warn!("Not implemented!"); NoReply },
                 CommandType::ENoCommand => { sqlite.insert(input); ReplyToChat(sqlite.select(String::new())) },
             }
+        },
+        |input_text| {
+            let sqlite = SQLITE_POOL.get_conn();
+            info!("{}", &input_text);
+            // some preparation?
+            sqlite.insert(input_text);
         }).await;
     }
 }
