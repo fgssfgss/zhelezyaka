@@ -1,16 +1,24 @@
 use futures::StreamExt;
 use telegram_bot::*;
 use log::{debug, trace, info, error, warn};
+use std::path::Path;
+use std::ffi::OsStr;
 
-const FILE_SIZE_LIMIT_BYTES: i64 = 200_000;
+macro_rules! make_reply {
+    ($e:expr) => (TelegramActions::ReplyToMessage(String::from($e)));
+}
+
+const FILE_SIZE_LIMIT_BYTES: i64 = 1_000_000; // 1 MiB
 
 pub struct Telegram {
     api: Api,
     token: String
 }
 
+#[derive(Debug)]
 enum TelegramErrors {
     FileSizeIsTooBig,
+    FileExtensionMissingOrWrong,
 }
 
 pub enum TelegramActions {
@@ -48,20 +56,35 @@ impl Telegram {
         };
     }
 
-    async fn get_document_url(token: String, api: &Api, document: Document) -> Result<String, TelegramErrors> {
+    fn get_extension_from_filename(filename: &str) -> Option<&str> {
+        Path::new(filename)
+            .extension()
+            .and_then(OsStr::to_str)
+    }
+
+    async fn validate_and_get_document_url(token: String, api: &Api, document: Document) -> Result<String, TelegramErrors> {
         let link = api.send(GetFile::new(&document)).await.unwrap();
         info!("filesize {}", link.file_size.unwrap());
         if link.file_size.unwrap_or(FILE_SIZE_LIMIT_BYTES) >= FILE_SIZE_LIMIT_BYTES {
             return Err(TelegramErrors::FileSizeIsTooBig)
         }
-        let url = format!("https://api.telegram.org/file/bot{}/{}", token, link.file_path.unwrap());
+        let file_name = link.file_path.unwrap();
+        if !Telegram::get_extension_from_filename(&file_name).map_or(false, |ext| ext == "txt") {
+            return Err(TelegramErrors::FileExtensionMissingOrWrong)
+        }
+        let url = format!("https://api.telegram.org/file/bot{}/{}", token, file_name);
         Ok(url)
     }
 
     async fn download_document_from_url(url: String) -> String {
-        let body = reqwest::get(&url)
-            .await.unwrap()
-            .text()
+        let response = reqwest::get(&url)
+            .await.unwrap();
+
+        for (key, value) in response.headers().iter() {
+            println!("HEADERS {:?}: {:?}", key, value);
+        };
+
+        let body = response.text()
             .await.unwrap();
 
         println!("body = {:?}", body);
@@ -98,18 +121,17 @@ impl Telegram {
                          let token = self.token.clone();
                          let document = data.clone();
                          tokio::spawn(async move {
-                             let doc = Telegram::get_document_url(token, &api, document).await;
+                             let doc = Telegram::validate_and_get_document_url(token, &api, document).await;
                              match doc {
                                  Ok(url) => {
-                                     // TODO: make it a macro
-                                     Telegram::send_message(api, &message, TelegramActions::ReplyToMessage(String::from("File is in progress"))).await;
+                                     Telegram::send_message(api, &message, make_reply!("File is in progress")).await;
                                      info!("document {}", url);
                                      let file_body = Telegram::download_document_from_url(url).await;
                                      file_handler(file_body);
                                  },
-                                 Err(_) => {
-                                     // TODO: make it a macro or another function
-                                     Telegram::send_message(api, &message, TelegramActions::ReplyToMessage(String::from("Some problems with file, maybe it's too big"))).await;
+                                 Err(e) => {
+                                     warn!("Error in file validation: {:?}", e);
+                                     Telegram::send_message(api, &message, make_reply!("Some problems with file, maybe it's too big, or it's not a txt file")).await;
                                  }
                              };
                          });
