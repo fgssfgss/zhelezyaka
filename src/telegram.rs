@@ -95,7 +95,7 @@ impl Telegram {
     where
         F: Fn(ChatId, String) -> TelegramActions,
         F: Copy + Send + 'static,
-        P: Fn(String),
+        P: Fn(ChatId, String),
         P: Copy + Send + 'static,
     {
         let mut stream = self.api.stream();
@@ -120,6 +120,7 @@ impl Telegram {
                          let api = self.api.clone();
                          let token = self.token.clone();
                          let document = data.clone();
+                         let chat_id = message.chat.id();
                          tokio::spawn(async move {
                              let doc = Telegram::validate_and_get_document_url(token, &api, document).await;
                              match doc {
@@ -127,7 +128,7 @@ impl Telegram {
                                      Telegram::send_message(api, &message, make_reply!("File is in progress")).await;
                                      info!("document {}", url);
                                      let file_body = Telegram::download_document_from_url(url).await;
-                                     file_handler(file_body);
+                                     file_handler(chat_id, file_body);
                                  },
                                  Err(e) => {
                                      warn!("Error in file validation: {:?}", e);

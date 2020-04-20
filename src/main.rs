@@ -1,18 +1,25 @@
 use log4rs;
-use log::{info, warn};
+use log::{info, trace};
 use std::env;
 mod sqlite;
 mod cmd;
 mod telegram;
+mod user_management;
+mod user;
 use cmd::CommandType;
 use telegram::TelegramActions::*;
 use sqlite::SqliteDB;
+use user_management::UserManager;
 use lazy_static::*;
 
 lazy_static! {
     static ref SQLITE_POOL: SqliteDB = {
         let dbpath = env::var("DATABASE_PATH").expect("DATABASE_PATH is not provided");
         sqlite::SqliteDB::new(&dbpath)
+    };
+
+    static ref USER_MANAGER: UserManager = {
+        user_management::UserManager::new(&SQLITE_POOL.get_conn())
     };
 }
 
@@ -30,8 +37,10 @@ async fn main() {
     loop {
         telegram.serve(|chat_id, input| {
             let sqlite = SQLITE_POOL.get_conn();
+            let mut user_account = USER_MANAGER.get_user(&sqlite, &chat_id.to_string());
             let cmdtype = cmd::CommandParser::parse_command(&input);
 
+            info!("user acc is {:?}", user_account);
             info!("ChatId <{}>: input txt {:?}", chat_id, &input);
 
             match cmdtype {
@@ -43,16 +52,39 @@ async fn main() {
                         ReplyToMessage(format!("Empty word provided"))
                     }
                 }
-                CommandType::EDisableForChat => { warn!("Not implemented!"); NoReply },
-                CommandType::EEnableForChat => { warn!("Not implemented!"); NoReply },
-                CommandType::ENoCommand => { sqlite.insert(input); ReplyToChat(sqlite.select(String::new())) },
+                CommandType::EDisableForChat => {
+                    info!("disable bot for this chat {}", &user_account.user_id);
+                    user_account.answer_mode = false;
+                    USER_MANAGER.update_user(&sqlite, &user_account);
+                    NoReply
+                },
+                CommandType::EEnableForChat => {
+                    info!("enable bot for this chat {}", &user_account.user_id);
+                    user_account.answer_mode = true;
+                    USER_MANAGER.update_user(&sqlite, &user_account);
+                    NoReply
+                },
+                CommandType::ENoCommand => {
+                    sqlite.insert(input);
+                    if user_account.answer_mode {
+                        ReplyToChat(sqlite.select(String::new()))
+                    } else {
+                        NoReply
+                    }
+                },
+                _ => { NoReply }
             }
         },
-        |input_text| {
+        |chat_id, input_text| {
             let sqlite = SQLITE_POOL.get_conn();
-            info!("{}", &input_text);
-            // some preparation?
-            sqlite.insert(input_text);
+            info!("input txt {}", &input_text);
+            let user_account = USER_MANAGER.get_user(&sqlite, &chat_id.to_string());
+
+            info!("inserting... {:?}", user_account);
+            if user_account.is_admin {
+                trace!("inserting the text into db");
+                sqlite.insert(input_text);
+            }
         }).await;
     }
 }

@@ -4,13 +4,20 @@ use r2d2_sqlite::rusqlite::params;
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::rusqlite::*;
 use r2d2_sqlite::rusqlite::ToSql;
+use std::collections::HashMap;
+use crate::user::*;
 
 const CREATE_DB: &str = "CREATE TABLE IF NOT EXISTS lexems (\
                             `lexeme1` TEXT, \
                             `lexeme2` TEXT, \
                             `lexeme3` TEXT, \
                             `count` INT NOT NULL DEFAULT '0', \
-                            UNIQUE (`lexeme1`, `lexeme2`, `lexeme3`))";
+                            UNIQUE (`lexeme1`, `lexeme2`, `lexeme3`));";
+const CREATE_USER_DB: &str = "CREATE TABLE IF NOT EXISTS user_profiles (\
+                            `user_id` TEXT,\
+                            `is_admin` INT NOT NULL DEFAULT '0',\
+                            `answer_mode` INT NOT NULL DEFAULT '1',\
+                            UNIQUE (`user_id`));";
 const IS_EXIST: &str = "SELECT count FROM lexems \
                          WHERE lexeme1 = ?1 OR lexeme2 = ?1 OR lexeme3 = ?1;";
 const SELECT_LEFT: &str = "SELECT lexeme1, lexeme2, lexeme3 FROM lexems \
@@ -39,7 +46,10 @@ impl SqliteDB {
         let manager = SqliteConnectionManager::file(path);
         let pool = r2d2::Pool::new(manager).unwrap();
 
-        pool.get().unwrap().execute(CREATE_DB, params![]).unwrap();
+
+        let conn = pool.get().unwrap();
+        conn.execute(CREATE_DB, params![]).unwrap();
+        conn.execute(CREATE_USER_DB, params![]).unwrap();
         SqliteDB { pool }
     }
 
@@ -58,9 +68,9 @@ where
     P::Item: ToSql,
 {
     match stmt.query_row(params, |row| {
-        let lexeme1: String = row.get(0).unwrap();
-        let lexeme2: String = row.get(1).unwrap();
-        let lexeme3: String = row.get(2).unwrap();
+        let lexeme1: String = row.get_unwrap(0);
+        let lexeme2: String = row.get_unwrap(1);
+        let lexeme3: String = row.get_unwrap(2);
         Ok(vec![lexeme1, lexeme2, lexeme3])
     }) {
         Ok(v) => v,
@@ -83,7 +93,7 @@ impl SqliteConn {
         if !word.is_empty() {
             let mut stmt = self.conn.prepare_cached(IS_EXIST).unwrap();
             let count = stmt.query_and_then(params![&word], |row| {
-                let cnt: i32 = row.get(0).unwrap();
+                let cnt: i32 = row.get_unwrap(0);
                 Ok(cnt)
             }).unwrap().
                 fold(0, |a, b: std::result::Result<i32, Error>| a + b.unwrap());
@@ -270,5 +280,43 @@ impl SqliteConn {
         }
 
         result_string
+    }
+
+    // API for user management
+    // So I will use only insert user into this DB
+    pub fn insert_user(&self, user: &UserAccount) {
+        self.conn.execute("BEGIN DEFERRED TRANSACTION", params![]).unwrap();
+
+        let query = "INSERT OR IGNORE INTO user_profiles (`user_id`, `is_admin`, `answer_mode`) VALUES (?1, ?2, ?3)";
+        self.conn.execute(&query, params![&user.user_id, user.is_admin, user.answer_mode]).unwrap();
+
+        self.conn.execute("COMMIT", params![]).unwrap();
+    }
+
+    // I will use it only on startup
+    pub fn get_all_users(&self) -> HashMap<String, UserAccount> {
+        let mut map = HashMap::new();
+        let mut stmt = self.conn.prepare_cached("SELECT * FROM user_profiles").unwrap();
+        let _n = stmt.query_and_then(params![], |row| {
+            let user_id: String = row.get_unwrap(0);
+            let is_admin: bool = row.get_unwrap(1);
+            let answer_mode: bool = row.get_unwrap(2);
+
+            info!("fetching profile = {} {} {}", &user_id, is_admin, answer_mode);
+            Ok(UserAccount { user_id, is_admin, answer_mode })
+        }).unwrap().map(|item: Result<UserAccount, Error>| {
+            let user = item.unwrap();
+            map.insert(user.user_id.clone(), user);
+        }).collect::<()>();
+        map
+    }
+
+    pub fn update_user(&self, user: &UserAccount) {
+        self.conn.execute("BEGIN DEFERRED TRANSACTION", params![]).unwrap();
+
+        let query = "UPDATE user_profiles SET `is_admin` = ?2, `answer_mode` = ?3 WHERE user_id = '?1'";
+        self.conn.execute(&query, params![&user.user_id, user.is_admin, user.answer_mode]).unwrap();
+
+        self.conn.execute("COMMIT", params![]).unwrap();
     }
 }

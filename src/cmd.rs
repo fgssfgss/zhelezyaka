@@ -4,6 +4,7 @@ const GENERATE_BY_WORD_COMMAND: &str = "/q";
 const DISABLE_FOR_CHAT_COMMAND: &str = "/off";
 const ENABLE_FOR_CHAT_COMMAND: &str = "/on";
 const GET_WORD_COUNT_COMMAND: &str = "/count";
+const START_BOT_COMMAND: &str = "/start";
 
 pub struct CommandParser;
 
@@ -13,6 +14,7 @@ pub enum CommandType {
     EGetCountByWord(String),
     EDisableForChat,
     EEnableForChat,
+    ENewUser,
 }
 
 impl CommandParser {
@@ -25,6 +27,10 @@ impl CommandParser {
         }
 
         match tokens[0] {
+            START_BOT_COMMAND => {
+                trace!("New user started bot");
+                CommandType::ENewUser
+            },
             GENERATE_BY_WORD_COMMAND => {
                 if tokens.len() == 2 {
                     trace!("Gen by word");
