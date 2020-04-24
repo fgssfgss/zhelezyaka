@@ -100,6 +100,9 @@ impl Telegram {
     {
         let mut stream = self.api.stream();
         while let Some(update) = stream.next().await {
+            if update.is_err() {
+                continue
+            }
             let update = update.unwrap();
             if let UpdateKind::Message(message) = update.kind {
                  match message.kind {
