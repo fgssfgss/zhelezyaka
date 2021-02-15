@@ -296,7 +296,7 @@ impl SqliteConn {
     // I will use it only on startup
     pub fn get_all_users(&self) -> HashMap<String, UserAccount> {
         let mut map = HashMap::new();
-        let mut stmt = self.conn.prepare_cached("SELECT * FROM user_profiles").unwrap();
+        let mut stmt = self.conn.prepare_cached("SELECT `user_id`, `is_admin`, `answer_mode` FROM user_profiles").unwrap();
         let _n = stmt.query_and_then(params![], |row| {
             let user_id: String = row.get_unwrap(0);
             let is_admin: bool = row.get_unwrap(1);
