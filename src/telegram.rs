@@ -8,7 +8,7 @@ macro_rules! make_reply {
     ($e:expr) => (TelegramActions::ReplyToMessage(String::from($e)));
 }
 
-const FILE_SIZE_LIMIT_BYTES: i64 = 1_000_000; // 1 MiB
+const FILE_SIZE_LIMIT_BYTES: i64 = 10_000_000; // 10 MiB
 
 pub struct Telegram {
     api: Api,

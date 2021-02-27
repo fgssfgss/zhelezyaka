@@ -8,12 +8,14 @@ use std::collections::HashMap;
 use crate::user::*;
 
 const CREATE_DB: &str = "CREATE TABLE IF NOT EXISTS lexems (\
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT, \
                             `lexeme1` TEXT, \
                             `lexeme2` TEXT, \
                             `lexeme3` TEXT, \
                             `count` INT NOT NULL DEFAULT '0', \
                             UNIQUE (`lexeme1`, `lexeme2`, `lexeme3`));";
 const CREATE_USER_DB: &str = "CREATE TABLE IF NOT EXISTS user_profiles (\
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT,\
                             `user_id` TEXT,\
                             `is_admin` INT NOT NULL DEFAULT '0',\
                             `answer_mode` INT NOT NULL DEFAULT '1',\
