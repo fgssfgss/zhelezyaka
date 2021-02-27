@@ -26,9 +26,9 @@ impl CommandParser {
             return CommandType::ENoCommand
         }
 
-        let cmd: Vec<&str> = input.split('@').collect();
+        let command: Vec<&str> = tokens[0].split('@').collect();
 
-        match cmd[0] {
+        match command[0] {
             START_BOT_COMMAND => {
                 trace!("New user started bot");
                 CommandType::ENewUser
