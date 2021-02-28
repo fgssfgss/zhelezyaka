@@ -8,9 +8,10 @@ pub struct UserManager {
 }
 
 impl UserManager {
-    pub fn new(conn: &SqliteConn) -> UserManager
+    pub fn new(conn: &mut SqliteConn) -> UserManager
     {
-        UserManager { user_table: Arc::new(Mutex::new(conn.get_all_users())) }
+        let users = conn.get_all_users();
+        UserManager { user_table: Arc::new(Mutex::new(users)) }
     }
 
     pub fn get_user(&self, conn: &SqliteConn, user_id: &str) -> UserAccount {
@@ -22,7 +23,13 @@ impl UserManager {
     }
 
     fn insert_account(map: &mut HashMap<String, UserAccount>, conn: &SqliteConn, user_id: &str) {
-        let user_account = UserAccount { user_id: String::from(user_id), is_admin: false, answer_mode: true};
+        let user_account = UserAccount { 
+            user_id: String::from(user_id), 
+            is_admin: false, 
+            answer_mode: true, 
+            lexeme_table: String::from(super::sqlite::DEFAULT_TABLE) 
+        };
+
         conn.insert_user(&user_account);
         map.insert(String::from(user_id), user_account);
     }
@@ -43,9 +50,7 @@ impl UserManager {
         let locked_table = &table;
         let mut hash_table = locked_table.lock().unwrap();
 
-        if hash_table.contains_key(&user.user_id) {
-            hash_table.insert(user.user_id.clone(), user.clone());
-            conn.update_user(user);
-        }
+        hash_table.insert(user.user_id.clone(), user.clone());
+        conn.update_user(user);
     }
 }

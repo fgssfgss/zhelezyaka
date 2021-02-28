@@ -5,6 +5,7 @@ const DISABLE_FOR_CHAT_COMMAND: &str = "/off";
 const ENABLE_FOR_CHAT_COMMAND: &str = "/on";
 const GET_WORD_COUNT_COMMAND: &str = "/count";
 const START_BOT_COMMAND: &str = "/start";
+const CHANGE_LEXEME_TABLE: &str = "/changelexemetbl";
 
 pub struct CommandParser;
 
@@ -14,6 +15,7 @@ pub enum CommandType {
     EGetCountByWord(String),
     EDisableForChat,
     EEnableForChat,
+    EChangeLexemeTable(String),
     ENewUser,
 }
 
@@ -49,6 +51,7 @@ impl CommandParser {
                     CommandType::ENoCommand
                 }
             },
+            CHANGE_LEXEME_TABLE => CommandType::EChangeLexemeTable(String::from(tokens[1])),
             DISABLE_FOR_CHAT_COMMAND => CommandType::EDisableForChat,
             ENABLE_FOR_CHAT_COMMAND => CommandType::EEnableForChat,
             _ => CommandType::ENoCommand

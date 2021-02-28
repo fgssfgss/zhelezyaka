@@ -19,7 +19,7 @@ lazy_static! {
     };
 
     static ref USER_MANAGER: UserManager = {
-        user_management::UserManager::new(&SQLITE_POOL.get_conn())
+        user_management::UserManager::new(&mut SQLITE_POOL.get_conn())
     };
 }
 
@@ -36,41 +36,51 @@ async fn main() {
 
     loop {
         telegram.serve(|chat_id, input| {
-            let sqlite = SQLITE_POOL.get_conn();
+            let mut sqlite = SQLITE_POOL.get_conn();
             let mut user_account = USER_MANAGER.get_user(&sqlite, &chat_id.to_string());
             let cmdtype = cmd::CommandParser::parse_command(&input);
+            let table_name = &user_account.lexeme_table;
 
-            info!("user acc is {:?}", user_account);
+            info!("User account is {:?}", user_account);
             info!("ChatId <{}>: input txt {:?}", chat_id, &input);
 
             match cmdtype {
-                CommandType::EGenerateByWord(s) => ReplyToMessage(sqlite.select(s)),
+                CommandType::EGenerateByWord(s) => ReplyToMessage(sqlite.select(&table_name, s)),
                 CommandType::EGetCountByWord(s) => {
-                    if let Some(n) = sqlite.is_exist(s) {
+                    if let Some(n) = sqlite.is_exist(&table_name, s) {
                         ReplyToMessage(format!("Count {}", n))
                     } else {
                         ReplyToMessage(format!("Empty word provided"))
                     }
                 }
                 CommandType::EDisableForChat => {
-                    info!("disable bot for this chat {}", &user_account.user_id);
+                    info!("Disable bot for this chat {}", &user_account.user_id);
                     user_account.answer_mode = false;
                     USER_MANAGER.update_user(&sqlite, &user_account);
                     NoReply
                 },
                 CommandType::EEnableForChat => {
-                    info!("enable bot for this chat {}", &user_account.user_id);
+                    info!("Enable bot for this chat {}", &user_account.user_id);
                     user_account.answer_mode = true;
                     USER_MANAGER.update_user(&sqlite, &user_account);
                     NoReply
                 },
                 CommandType::ENoCommand => {
-                    sqlite.insert(input);
+                    sqlite.insert(&table_name, input);
                     if user_account.answer_mode {
-                        ReplyToChat(sqlite.select(String::new()))
+                        ReplyToChat(sqlite.select(&table_name, String::new()))
                     } else {
                         NoReply
                     }
+                },
+                CommandType::EChangeLexemeTable(table) => {
+                    sqlite.create_lexeme_table(&table);
+                    {
+                        user_account.lexeme_table;
+                    }
+                    user_account.lexeme_table = String::from(&table);
+                    USER_MANAGER.update_user(&sqlite, &user_account);
+                    ReplyToMessage(format!("Created table {}", &table))
                 },
                 _ => { NoReply }
             }
@@ -79,11 +89,12 @@ async fn main() {
             let sqlite = SQLITE_POOL.get_conn();
             info!("input txt {}", &input_text);
             let user_account = USER_MANAGER.get_user(&sqlite, &chat_id.to_string());
+            let table_name = String::from("default");
 
             info!("inserting... {:?}", user_account);
             if user_account.is_admin {
                 trace!("inserting the text into db");
-                sqlite.insert(input_text);
+                sqlite.insert(&table_name, input_text);
             }
         }).await;
     }
