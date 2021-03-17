@@ -82,6 +82,15 @@ async fn main() {
                     USER_MANAGER.update_user(&sqlite, &user_account);
                     ReplyToMessage(format!("Created table {}", &table))
                 },
+                CommandType::EGetLexemeTable => {
+                    ReplyToMessage(format!("Your current lexeme table is: {}", &user_account.lexeme_table))
+                },
+                CommandType::EHelpCommand => {
+                    ReplyToMessage(format!("JelezyakaBot 2.0:\n/q - query funny story this awesome bot :))))\n/on - enable answer mode for this room/chat\n/off - disable answer mode for this room/chat\n/count - count word in your lexeme table\n/help - this help\n"))
+                }, 
+                CommandType::EAdminHelpCommand => {
+                    ReplyToMessage(format!("EBALO AUF NUL!\n/adminhelp - only if you're admin of this bot\n/changetable - change lexeme table for this room/chat\n/getcurrenttable - get current table for this room/chat\n"))
+                },
                 _ => { NoReply }
             }
         },

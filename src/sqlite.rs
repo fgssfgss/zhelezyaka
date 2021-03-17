@@ -7,8 +7,8 @@ use r2d2_sqlite::rusqlite::*;
 use r2d2_sqlite::SqliteConnectionManager;
 use std::collections::HashMap;
 
-pub const DEFAULT_TABLE: &str = "default_table";
-const CREATE_DB: &str = "CREATE TABLE IF NOT EXISTS default_table (\
+pub const DEFAULT_TABLE: &str = "lexems";
+const CREATE_DB: &str = "CREATE TABLE IF NOT EXISTS lexems (\
                             `id` INTEGER PRIMARY KEY AUTOINCREMENT, \
                             `lexeme1` TEXT, \
                             `lexeme2` TEXT, \
@@ -20,7 +20,7 @@ const CREATE_USER_DB: &str = "CREATE TABLE IF NOT EXISTS user_profiles (\
                             `user_id` TEXT,\
                             `is_admin` INT NOT NULL DEFAULT '0',\
                             `answer_mode` INT NOT NULL DEFAULT '1',\
-                            `lexeme_table` TEXT NOT NULL DEFAULT 'default_table', \
+                            `lexeme_table` TEXT NOT NULL DEFAULT 'lexems', \
                             UNIQUE (`user_id`));";
 // begin and end markers for text
 const BEGIN: &str = "#beg#";
@@ -139,7 +139,7 @@ where
 impl SqliteConn {
     pub fn new(conn: PooledConnection<SqliteConnectionManager>) -> SqliteConn {
         conn.busy_handler(Some(|_| {
-            std::thread::sleep(std::time::Duration::from_millis(16));
+            std::thread::sleep(std::time::Duration::from_millis(1));
             true
         }))
         .unwrap();
@@ -288,13 +288,13 @@ impl SqliteConn {
             .conn
             .prepare_cached(&QueriesForTable::left(table))
             .unwrap();
-        let mut result = vec![String::from(lexeme2), String::from(lexeme3)];
+        let mut result = vec![String::from(lexeme3), String::from(lexeme2)];
         let mut result_string = String::new();
 
         trace!("{} {}", &lexeme2, &lexeme3);
 
-        let get_first_element = |v: &Vec<String>| v[0].clone();
-        let get_after_first_element = |v: &Vec<String>| v[1].clone();
+        let get_first_element = |v: &Vec<String>| v[v.len() - 1].clone();
+        let get_after_first_element = |v: &Vec<String>| v[v.len() - 2].clone();
 
         let mut select = |word2, word3| {
             let ret = query_statement(&mut stmt, params![&word2, &word3]);
@@ -309,21 +309,20 @@ impl SqliteConn {
         while let Some(lexems) =
             select(get_first_element(&result), get_after_first_element(&result))
         {
-            result.insert(0, get_first_element(&lexems));
+            result.push(lexems[0].clone());
             recursion = recursion + 1;
             if recursion >= MAXIMUM_RECURSION_DEPTH {
                 break;
             }
         }
 
-        // removing the last element, to make sure that it won't be duplicated in select_right
         if remove_last {
-            result.pop().unwrap();
+            result.remove(0);
         }
 
         let reverse_string = |s: &str| s.chars().rev().collect::<String>();
 
-        for (i, s) in result.iter().rev().enumerate() {
+        for (i, s) in result.iter().enumerate() {
             trace!("{}: {}", i, s);
             result_string.push_str(&reverse_string(&s));
             result_string.push_str(" ");
