@@ -89,7 +89,10 @@ async fn main() {
                     ReplyToMessage(format!("JelezyakaBot 2.0:\n/q - query funny story this awesome bot :))))\n/on - enable answer mode for this room/chat\n/off - disable answer mode for this room/chat\n/count - count word in your lexeme table\n/help - this help\n"))
                 }, 
                 CommandType::EAdminHelpCommand => {
-                    ReplyToMessage(format!("EBALO AUF NUL!\n/adminhelp - only if you're admin of this bot\n/changetable - change lexeme table for this room/chat\n/getcurrenttable - get current table for this room/chat\n"))
+                    ReplyToMessage(format!("EBALO AUF NUL!\n/adminhelp - only if you're admin of this bot\n/changetable - change lexeme table for this room/chat\n/getcurrenttable - get current table for this room/chat\n/listtable - list of lexeme tables\n"))
+                },
+                CommandType::EListLexemeTables => {
+                    ReplyToMessage(format!("List of lexeme tables - {}", sqlite.fetch_lexems_tables_list().join(",")))
                 },
                 _ => { NoReply }
             }

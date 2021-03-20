@@ -7,6 +7,7 @@ const GET_WORD_COUNT_COMMAND: &str = "/count";
 const START_BOT_COMMAND: &str = "/start";
 const CHANGE_LEXEME_TABLE_COMMAND: &str = "/changetable";
 const GET_CURRENT_LEXEME_TABLE_COMMAND: &str = "/getcurrenttable";
+const GET_LEXEME_TABLE_LIST_COMMAND: &str = "/listtable";
 const HELP_COMMAND: &str = "/help";
 const ADMIN_HELP_COMMAND: &str = "/adminhelp";
 
@@ -20,6 +21,7 @@ pub enum CommandType {
     EEnableForChat,
     EChangeLexemeTable(String),
     EGetLexemeTable,
+    EListLexemeTables,
     ENewUser,
     EHelpCommand,
     EAdminHelpCommand,
@@ -71,6 +73,7 @@ impl CommandParser {
             GET_CURRENT_LEXEME_TABLE_COMMAND => CommandType::EGetLexemeTable,
             HELP_COMMAND => CommandType::EHelpCommand,
             ADMIN_HELP_COMMAND => CommandType::EAdminHelpCommand,
+            GET_LEXEME_TABLE_LIST_COMMAND => CommandType::EListLexemeTables,
             _ => CommandType::ENoCommand
         }
     }

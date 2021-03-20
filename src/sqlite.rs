@@ -22,6 +22,11 @@ const CREATE_USER_DB: &str = "CREATE TABLE IF NOT EXISTS user_profiles (\
                             `answer_mode` INT NOT NULL DEFAULT '1',\
                             `lexeme_table` TEXT NOT NULL DEFAULT 'lexems', \
                             UNIQUE (`user_id`));";
+const CREATE_LIST_DB: &str = "CREATE TABLE IF NOT EXISTS lexems_list (\
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT, \
+                            `lexeme_table` TEXT,
+                            UNIQUE (`lexeme_table`));";
+const INSERT_DEFAULT_TABLE: &str = "INSERT OR IGNORE INTO lexems_list (`lexeme_table`) VALUES ('lexems');";
 // begin and end markers for text
 const BEGIN: &str = "#beg#";
 const END: &str = "#end#";
@@ -43,6 +48,10 @@ impl QueriesForTable {
             UNIQUE (`lexeme1`, `lexeme2`, `lexeme3`));",
             table_name
         )
+    }
+    
+    pub fn insert_table(table_name: &str) -> String {
+        format!("INSERT OR IGNORE INTO lexems_list (`lexeme_table`) VALUES ('{}');", table_name)
     }
 
     pub fn exists(table_name: &str) -> String {
@@ -98,7 +107,9 @@ impl SqliteDB {
         let pool = r2d2::Pool::new(manager).unwrap();
 
         let conn = pool.get().unwrap();
+        conn.execute(CREATE_LIST_DB, params![]).unwrap();
         conn.execute(CREATE_DB, params![]).unwrap();
+        conn.execute(INSERT_DEFAULT_TABLE, params![]).unwrap();
         conn.execute(CREATE_USER_DB, params![]).unwrap();
 
         SqliteDB { pool }
@@ -151,6 +162,10 @@ impl SqliteConn {
     pub fn create_lexeme_table(&mut self, name: &str) {
         self.conn
             .execute(&QueriesForTable::create(name), params![])
+            .unwrap();
+            
+        self.conn
+            .execute(&QueriesForTable::insert_table(name), params![])
             .unwrap();
         info!("Created a new table '{}' and new queries for it", name);
     }
@@ -371,6 +386,14 @@ impl SqliteConn {
         result_string
     }
 
+    pub fn fetch_lexems_tables_list(&self) -> Vec<String> {
+        let mut stmt = self.conn.prepare_cached("SELECT `lexeme_table` FROM lexems_list;").unwrap();
+        stmt.query_and_then(params![], |row| {
+            let table: String = row.get_unwrap(0);
+            Ok(table)
+        }).unwrap().map(|item: Result<String, Error>| item.unwrap()).collect::<Vec<String>>()
+    }
+    
     // API for user management
     // So I will use only insert user into this DB
     pub fn insert_user(&self, user: &UserAccount) {
